@@ -59,8 +59,8 @@ class BinaryCLT:
             [[compute_mi(self.data[:, [i, j]]) if j > i else 0 for j in range(self.cols)] for i in range(self.cols)])
         # invert the mutual information
         # to get the maximum spanning tree by calculating the minimum spanning tree of the inverse
-        mi_matrix_inv = -mi_matrix
-        tree = mst(mi_matrix_inv)
+
+        tree = mst(-mi_matrix)
         # add connections to the tree in both directions
         tree = tree.toarray().astype(float)
         tree = tree.T + tree
