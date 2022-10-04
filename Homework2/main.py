@@ -5,43 +5,39 @@ import numpy as np
 import csv
 
 
-def compute_mi(cols):
-    cols[:, 0] *= 2
+def prob_col(col, val, alpha):
+    return np.log(2*alpha+len(col[col == val]))-np.log(4*alpha+len(col))
+
+
+def joint_prob_col(both_cols, val1, val2, alpha):
+    return np.log(alpha+len(both_cols[np.sum(both_cols == (val1, val2), axis=1) == 2]))-np.log(4*alpha+len(both_cols))
+
+
+def cond_prob_col(both_cols, vals, alpha):
+    return joint_prob_col(both_cols, vals[0], vals[1], alpha)-prob_col(both_cols[:, 1], vals[1], alpha)
+
+
+def compute_partial_mi(cols, i, j, alpha):
+    logjoint = joint_prob_col(cols, i,j, alpha)
+    logpx = prob_col(cols[:, 0],i,alpha)
+    logpy = prob_col(cols[:, 1],j,alpha)
+    return np.exp(logjoint)*(logjoint-(logpx+logpy))
+
+
+def compute_mi(cols, alpha):
     names, occurs = np.unique(np.sum(cols, axis=1), return_counts=True)
     namelen = len(names)
     # if only 2 marginals, variables must be independent so mutual information = 0
     if namelen == 2:
         return 0
-
-    # Use small value alpha to substitute the 0-values
+    # need to add a 0 as it is not counted when there are none
     if namelen == 3:
-        occurs = np.insert(occurs.astype('float'), np.argmin(np.isin([0, 1, 2, 3], names)), 0.01)
+        occurs = np.insert(occurs.astype('float'), np.argmin(np.isin([0, 1, 2, 3], names)), 0)
 
-    probs = np.log(occurs / sum(occurs))
-
-    px0 = logsumexp([probs[0], probs[1]])
-    px1 = logsumexp([probs[2], probs[3]])
-    py0 = logsumexp([probs[0], probs[2]])
-    py1 = logsumexp([probs[1], probs[3]])
-
-    mi = np.exp(probs[0]) * (probs[0] - (px0 + py0)) + \
-         np.exp(probs[1]) * (probs[1] - (px0 + py1)) + \
-         np.exp(probs[2]) * (probs[2] - (px1 + py0)) + \
-         np.exp(probs[3]) * (probs[3] - (px1 + py1))
+    # calculate the mi
+    mi = sum([compute_partial_mi(cols, i, j, alpha) for i in range(2) for j in range(2)])
 
     return np.log(mi)
-
-
-def prob_col(col, val, alpha):
-    return np.log(2*alpha*len(col[col == val]))-np.log(4*alpha*len(col))
-
-
-def joint_prob_col(both_cols, val1, val2, alpha):
-    return np.log(alpha*len(both_cols[np.sum(both_cols == (val1, val2), axis=1) == 2]))-np.log(4*alpha*len(both_cols))
-
-
-def cond_prob_col(both_cols, vals, alpha):
-    return joint_prob_col(both_cols, vals[0], vals[1], alpha)-prob_col(both_cols[:, 0], vals[0], alpha)
 
 
 class BinaryCLT:
@@ -56,7 +52,7 @@ class BinaryCLT:
     def gettree(self):
         # create the mutual information matrix
         mi_matrix = np.array(
-            [[compute_mi(self.data[:, [i, j]]) if j > i else 0 for j in range(self.cols)] for i in range(self.cols)])
+            [[compute_mi(self.data[:, [i, j]],self.alpha) if j > i else 0 for j in range(self.cols)] for i in range(self.cols)])
         # invert the mutual information
         # to get the maximum spanning tree by calculating the minimum spanning tree of the inverse
 
@@ -80,10 +76,10 @@ class BinaryCLT:
                 pmfs.append([[vals[0], vals[1]], [vals[0], vals[1]]])
             else:
                 vals = [cond_prob_col(self.data[:, [i, self.tree[i]]], j, self.alpha) for j in
-                        [(0, 0), (0, 1), (1, 0), (1, 1)]]
+                        [(0, 0), (1, 0), (0, 1), (1, 1)]]
                 pmfs.append([[vals[0], vals[1]], [vals[2], vals[3]]])
-        # multiply by 2 so every column adds up to 1
-        return pmfs + np.log(2)
+
+        return np.array(pmfs)
 
     # def logprob(self, x, exhaustive: bool = False):
 
