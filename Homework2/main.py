@@ -18,9 +18,9 @@ def cond_prob_col(both_cols, vals, alpha):
 
 
 def compute_partial_mi(cols, i, j, alpha):
-    logjoint = joint_prob_col(cols, i,j, alpha)
-    logpx = prob_col(cols[:, 0],i,alpha)
-    logpy = prob_col(cols[:, 1],j,alpha)
+    logjoint = joint_prob_col(cols, i, j, alpha)
+    logpx = prob_col(cols[:, 0], i, alpha)
+    logpy = prob_col(cols[:, 1], j, alpha)
     return np.exp(logjoint)*(logjoint-(logpx+logpy))
 
 
@@ -52,7 +52,7 @@ class BinaryCLT:
     def gettree(self):
         # create the mutual information matrix
         mi_matrix = np.array(
-            [[compute_mi(self.data[:, [i, j]],self.alpha) if j > i else 0 for j in range(self.cols)] for i in range(self.cols)])
+            [[compute_mi(self.data[:, [i, j]], self.alpha) if j > i else 0 for j in range(self.cols)] for i in range(self.cols)])
         # invert the mutual information
         # to get the maximum spanning tree by calculating the minimum spanning tree of the inverse
 
