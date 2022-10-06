@@ -41,15 +41,6 @@ def compute_mi(cols, alpha):
     return np.log(mi)
 
 
-def find_block(me, tree, indices):
-    if tree[me] == -1:
-        return 1
-    elif tree[me] in indices:
-        return 0
-    else:
-        return find_block(tree[me], tree, indices)
-
-
 class BinaryCLT:
     def __init__(self, data, root: int = None, alpha: float = 0.01):
         self.cols = data.shape[1]
@@ -113,22 +104,16 @@ class BinaryCLT:
                 marginals.append(np.log(sum(lookup[:, 1] * [item in pos for item in lookup[:, 0]]) / total))
 
         else:
-            # depths = [find_depth(point,self.tree) for point in range(len(self.tree))]
+            # Do message passing
             marginals = []
             for query in x:
                 insertions = np.argwhere(~np.isnan(query)).flatten()
-                need_to_know = np.array(
-                    [find_block(node, self.tree, insertions) for node in range(len(self.tree))]).astype('bool')
 
-                needed_nodes = set(np.argwhere(need_to_know).flatten())
-                not_needed = set(np.argwhere(~need_to_know).flatten())
                 leaves = set(range(16)) - set(self.tree)
 
-                l2 = leaves.union(set(insertions)) - not_needed
-
-                non_leaves = needed_nodes - l2
-                children = {node: set(np.argwhere(self.tree == node).flatten()) for node in non_leaves}
-                l2 = list(l2)
+                non_leaves = set(range(16)) - leaves
+                children = {node: set(np.argwhere(self.tree == node).flatten()) for node in set(range(16))}
+                l2 = list(leaves)
 
                 temp_marginals = {}
 
@@ -137,19 +122,24 @@ class BinaryCLT:
 
                     if (self.tree[point] != -1) and (self.tree[point] not in l2):
                         l2.append(self.tree[point])
-                    if point in insertions:
-                        if query[point] == 0:
-                            temp_marginals[point] = self.pmfs[point][0]
-                        else:
-                            temp_marginals[point] = self.pmfs[point][1]
-                    elif point in leaves:
-                        temp_marginals[point] = np.array([0, 0]).astype(float)
-                    elif children[point] == children[point].intersection(set(temp_marginals.keys())):
+
+                    # if we have already gotten messages from all children
+                    if children[point] == children[point].intersection(set(temp_marginals.keys())):
 
                         child_margins = np.sum(np.array([temp_marginals[p] for p in children[point]]), axis=0)
 
-                        temp_marginals[point] = np.array([logsumexp(self.pmfs[point][0] + child_margins),
-                                                          logsumexp(self.pmfs[point][1] + child_margins)])
+                        if len(child_margins.shape) < 1:
+                            child_margins = np.array([0, 0])
+
+                        if point in insertions:
+                            qp = int(query[point])
+
+                            temp_marginals[point] = np.array([self.pmfs[point][0, qp] + child_margins[qp],
+                                                              self.pmfs[point][1, qp] + child_margins[qp]])
+
+                        else:
+                            temp_marginals[point] = np.array([logsumexp(self.pmfs[point][0] + child_margins),
+                                                              logsumexp(self.pmfs[point][1] + child_margins)])
 
                     else:
                         l2.append(point)
