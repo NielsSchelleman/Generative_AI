@@ -44,22 +44,10 @@ def compute_mi(cols, alpha):
 
 
 
-def sum_out(matrix, pair):
-    #Dependant on which value is nan sum out the probability matrix
-    if np.isnan(pair[1]):
-        return matrix[0] + matrix[1]
-    elif np.isnan(pair[0]):
-        return matrix[:,0] + matrix[:,1]
-    else:
-        return matrix
 
-def summed_pmfs(pmfs, pairs):
-    #Build a tree out of all of the probability matrices
-    sum_pmfs = []
-    for i in range(len(pairs)):
-        sum_pmfs.append(sum_out(pmfs[i], pairs[i]))
-    return np.array(sum_pmfs)
-
+    
+            
+            
 
 class BinaryCLT:
     def __init__(self, data, root: int = None, alpha: float = 0.01):
@@ -101,58 +89,7 @@ class BinaryCLT:
                 pmfs.append([[vals[0], vals[1]], [vals[2], vals[3]]])
 
         return np.array(pmfs)
-
-    def logprob(self, x=np.array([]), exhaustive: bool = True):
-        #The answers for this specific example are in HW2 therefore im using this pmfs and tree as data
-        lp = []
-        self.pmfs = np.array([[[ -1.204 , -0.357] , [-1.204 , -0.357]] ,
-                    [[ -1.609 ,-0.223] , [ -0.511 , -0.916]] ,
-                    [[ -0.916 , -0.511] , [ -2.303 , -0.105]] ,
-                    [[ -0.223 , -1.609] , [ -0.693 , -0.693]] ,
-                    [[ -0.105 , -2.303] , [ -0.916 , -0.511]]])
-
-        self.tree = [ -1 , 0 , 4 , 4 , 0 ]
-        
-        if exhaustive:    
-            for sample in x:
-
-                #make [child value, parent value, index in pmfs]
-                pairs = np.array([[sample[i], sample[self.tree[i]], i] for i in range(len(sample))], dtype=np.float64)
-
-                #build a tree where nan values are summed out 
-                new_tree = summed_pmfs(np.exp(self.pmfs), pairs[:,:2])
-                print(new_tree)
-                probs = []
-
-                #for every pair take log of the correct value in the tree
-                for pair in pairs:
-                    #Probabilities of a fully nan matrix sum up to 2
-                    if np.isnan(pair[0]) and np.isnan(pair[1]):
-                        probs.append(np.log(2))
-                    #If child is Nan probabilities sum up to 1 (see tree)
-                    elif np.isnan(pair[0]):
-                        probs.append(np.log(1))
-                    #If parent is Nan use tree to get value
-                    elif np.isnan(pair[1]):
-                        probs.append(np.log(new_tree[int(pair[2])][int(pair[0])]))
-                    #If neither is nan use full matrix 
-                    else:
-                        probs.append(np.log(new_tree[int(pair[2])][int(pair[1])][int(pair[0])]))
-                    print(probs)
-                lp.append(np.sum(probs))
-            return lp
-        
-        
-        elif ~exhaustive:
-             
-
-
-
-            return None
-
-
-    # def sample(self, nsamples: int)
-
+    
 
 if __name__ == "__main__":
     with open(os.path.join(sys.path[0], 'nltcs.train.data'), 'r') as f:
@@ -162,6 +99,7 @@ if __name__ == "__main__":
         reader = csv.reader(f, delimiter=',')
         marginals = np.array(list(reader))
     mytree = BinaryCLT(dataset, 2)
-    # print(mytree.pmfs)
-    # print(mytree.tree)
-    print(mytree.logprob(x=np.array([[np.nan,0,np.nan,np.nan,1]])))
+    print(np.exp(mytree.pmfs))
+    print(mytree.tree)
+
+
