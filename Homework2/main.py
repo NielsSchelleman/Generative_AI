@@ -87,8 +87,8 @@ class BinaryCLT:
     def logprob(self, x, exhaustive=False):
         if exhaustive:
             a, b = np.unique(self.data, axis=0, return_counts=True)
-            total = sum(b)
-            lookup = dict(zip(list(map(tuple, a)), list(b)))
+            total = np.log(sum(b))
+            lookup = dict(zip(list(map(tuple, a)), list(np.log(b) - total)))
 
             lookup = np.array(list(lookup.items()), dtype='object')
 
@@ -96,30 +96,29 @@ class BinaryCLT:
             for query in x:
                 nans = np.isnan(query)
                 pos = np.array(list(itertools.product([0, 1], repeat=sum(nans))))
-                insertions = np.argwhere(~nans)
+                insertions = np.argwhere(~nans).flatten()
                 for i in insertions:
                     pos = np.insert(pos, i, query[i], axis=1)
                 pos = list(map(tuple, pos))
-
-                marginals.append(np.log(sum(lookup[:, 1] * [item in pos for item in lookup[:, 0]]) / total))
+                marginals.append(logsumexp(lookup[[item in pos for item in lookup[:, 0]]][:, 1].astype(float)))
 
         else:
             # Do message passing
             marginals = []
+
             for query in x:
                 insertions = np.argwhere(~np.isnan(query)).flatten()
 
-                leaves = set(range(16)) - set(self.tree)
+                leaves = set(range(self.cols)) - set(self.tree)
 
-                non_leaves = set(range(16)) - leaves
-                children = {node: set(np.argwhere(self.tree == node).flatten()) for node in set(range(16))}
+                non_leaves = set(range(self.cols)) - leaves
+                children = {node: set(np.argwhere(self.tree == node).flatten()) for node in set(range(self.cols))}
                 l2 = list(leaves)
 
                 temp_marginals = {}
 
                 while len(l2) > 0:
                     point = l2.pop(0)
-
                     if (self.tree[point] != -1) and (self.tree[point] not in l2):
                         l2.append(self.tree[point])
 
@@ -137,9 +136,11 @@ class BinaryCLT:
                             temp_marginals[point] = np.array([self.pmfs[point][0, qp] + child_margins[qp],
                                                               self.pmfs[point][1, qp] + child_margins[qp]])
 
+
                         else:
                             temp_marginals[point] = np.array([logsumexp(self.pmfs[point][0] + child_margins),
                                                               logsumexp(self.pmfs[point][1] + child_margins)])
+
 
                     else:
                         l2.append(point)
@@ -148,7 +149,6 @@ class BinaryCLT:
 
         return marginals
 
-    # Function that takes a parent node and progresses recursively through a tree drawing samples for each child
     def draw(self, parent: int, sample: list):
 
         children = np.argwhere(self.tree == parent)
@@ -192,3 +192,9 @@ if __name__ == "__main__":
     print(mytree.logprob(x=margs[0:10], exhaustive=True))
     print(mytree.sample(100))
 
+    # s =  mytree.logprob(x=np.array(list(itertools.product([0,1],repeat=16))))
+    # print(logsumexp(s))
+    # This adds up to 1
+
+    # print(np.exp(mytree.logprob(x=[[np.nan]*16],exhaustive=False)))
+    # this also adds up to 1
