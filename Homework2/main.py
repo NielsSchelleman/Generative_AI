@@ -79,15 +79,16 @@ def compute_mi(cols, alpha=0.01):
 
 
 class BinaryCLT:
+    # all data imports need to be of type int, not floats (except for the marginals)
     def __init__(self, data, root: int = None, alpha: float = 0.01):
         self.cols = data.shape[1]
         self.data = data
         self.root = root
         self.alpha = alpha
-        self.tree = self.gettree()
-        self.pmfs = self.getlogparams()
+        self.tree = self.get_tree()
+        self.pmfs = self.get_log_params()
 
-    def gettree(self):
+    def get_tree(self):
         """
         Creates the tree
         :return: 1D array of the tree where tree[0] gives the parent of node at position 0
@@ -113,7 +114,7 @@ class BinaryCLT:
         clt[clt == -9999] = -1
         return clt
 
-    def getlogparams(self):
+    def get_log_params(self):
         """
         Computes the CPTs given the tree
         :return:
@@ -131,7 +132,7 @@ class BinaryCLT:
 
         return np.array(pmfs)
 
-    def logprob(self, x, exhaustive=False):
+    def log_prob(self, x, exhaustive=False):
         """
         Calculates the log probabilities of morginals
         :param x: a 2D array where each row is a marginal
@@ -155,7 +156,7 @@ class BinaryCLT:
                     pos = np.insert(pos, i, query[i], axis=1)
                 pos = list(map(tuple, pos))
                 # add all combinations of RV's which have a log probability and can be created from the marginal
-                marginals.append(logsumexp(lookup[[item in pos for item in lookup[:, 0]]][:, 1].astype(float)))
+                marginals.append([logsumexp(lookup[[item in pos for item in lookup[:, 0]]][:, 1].astype(float))])
 
         else:
             # Do message passing
@@ -191,8 +192,8 @@ class BinaryCLT:
                                                               logsumexp(self.pmfs[point][1] + child_margins)])
                     else:
                         l2.append(point)
-                marginals.append(temp_marginals[self.root][0])
-        return marginals
+                marginals.append([temp_marginals[self.root][0]])
+        return np.array(marginals)
 
     def draw(self, parent: int, sample: list):
         """
@@ -268,9 +269,9 @@ if __name__ == "__main__":
     mytree = BinaryCLT(dataset, 0)
 
     start = time.time()
-    print(mytree.logprob(x=margs[0:100]))
+    print(mytree.log_prob(x=margs[0:10]))
     t1 = time.time()
-    print(mytree.logprob(x=margs[0:100], exhaustive=True))
+    print(mytree.log_prob(x=margs[0:10], exhaustive=True))
     t2 = time.time()
 
     print(t1-start)
@@ -284,9 +285,9 @@ if __name__ == "__main__":
 
     print(mytree.compute_ll(mytree.sample(1000)))
 
-    # s =  mytree.logprob(x=np.array(list(itertools.product([0,1],repeat=16))))
+    # s =  mytree.log_prob(x=np.array(list(itertools.product([0,1],repeat=16))))
     # print(logsumexp(s))
     # This adds up to 1
 
-    # print(np.exp(mytree.logprob(x=[[np.nan]*16],exhaustive=False)))
+    # print(np.exp(mytree.log_prob(x=[[np.nan]*16],exhaustive=False)))
     # this also adds up to 1
